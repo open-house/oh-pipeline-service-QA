@@ -1,0 +1,178 @@
+#! /bin/bash
+
+function check_response_code {
+
+    HTTP_CODE=$(curl -s -w %{http_code} "$1" -o /dev/nul)
+    if [ $HTTP_CODE -eq $2 ];then
+        echo "SUCCESS: $1 returned $HTTP_CODE"
+    else
+        echo "FAIL:    $1 returned $HTTP_CODE, but $2 was expected"
+    fi
+}
+
+function send {
+    HTTP_CODE=$(curl -s -w %{http_code} -X $1 "$2" -o /dev/null)
+    MSG="$1 $2 - response code $HTTP_CODE"
+    if [ $HTTP_CODE -eq "$3" ];then
+        echo "SUCCESS: $MSG"
+    else
+        echo "FAIL:    $MSG"
+    fi
+}
+
+function send_data {
+    HTTP_CODE=$(curl -s -w %{http_code} -X $1 --data "$3" -H "Content-Type: application/xml" "$2" -o /dev/null)
+    MSG="$1 $2 $3 - response code $HTTP_CODE"
+    if [ $HTTP_CODE -eq "$4" ];then
+        echo "SUCCESS: $MSG"
+    else
+        echo "FAIL:    $MSG"
+    fi
+}
+
+HOST="localhost:8000"
+if [ $# -gt 0 ]
+then
+    $HOST="$1"
+fi
+
+PROJECT="qa_project"
+
+# cleanup (delete test project)
+send "DELETE" "$HOST/projects/$PROJECT" 204
+
+# --- project tests ---
+echo "------ project tests ------"
+
+# check root resources
+check_response_code $HOST 200
+check_response_code "$HOST/projects" 200
+
+# add project
+send "DELETE" "$HOST/projects" 405
+send "PUT" "$HOST/projects/$PROJECT" 204
+send "PUT" "$HOST/projects/$PROJECT" 409
+check_response_code "$HOST/projects" 200
+check_response_code "$HOST/projects/$PROJECT" 200
+
+# override project
+send_data "POST" "$HOST/projects/$PROJECT" "<project><name>qa_override</name></project>" 204
+check_response_code "$HOST/projects/qa_override" 200
+check_response_code "$HOST/projects/$PROJECT" 404
+
+# delete project
+send "DELETE" "$HOST/projects/qa_override" 204
+check_response_code "$HOST/projects/qa_override" 404
+
+# --- versions tests ---
+echo "------ versions tests -----"
+
+# add project
+send "PUT" "$HOST/projects/$PROJECT" 204
+check_response_code "$HOST/projects/$PROJECT/versions" 200
+check_response_code "$HOST/projects/non_existing/versions" 404
+
+# add project version
+send "PUT" "$HOST/projects/$PROJECT/versions/1.0" 204
+send "PUT" "$HOST/projects/$PROJECT/versions/1.0" 409
+send "DELETE" "$HOST/projects/$PROJECT/versions" 405
+
+check_response_code "$HOST/projects/$PROJECT/versions/1.0" 200
+
+# override version
+send_data "POST" "$HOST/projects/$PROJECT/versions/1.0" "<version><version-number>2.0</version-number></version>" 204
+check_response_code "$HOST/projects/$PROJECT/versions/1.0" 404
+check_response_code "$HOST/projects/$PROJECT/versions/2.0" 200
+
+# delete version
+send "DELETE" "$HOST/projects/$PROJECT/versions/2.0" 204
+check_response_code "$HOST/projects/$PROJECT/versions/2.0" 404
+
+# version should be deleted by deleting project
+send "DELETE" "$HOST/projects/$PROJECT" 204
+send "PUT" "$HOST/projects/$PROJECT" 204
+send "PUT" "$HOST/projects/$PROJECT/versions/1.0" 204
+send "DELETE" "$HOST/projects/$PROJECT" 204
+check_response_code "$HOST/projects/$PROJECT/versions/1.0" 404
+
+# --- phase tests ---
+echo "------- phase tests -------"
+
+# add project and version
+send "PUT" "$HOST/projects/$PROJECT" 204
+send "PUT" "$HOST/projects/$PROJECT/versions/1.0" 204
+
+check_response_code "$HOST/projects/$PROJECT/versions/1.0/phases" 200
+check_response_code "$HOST/projects/non_existing/versions/1.0/phases" 404
+check_response_code "$HOST/projects/$PROJECT/versions/7.3/phases" 404
+
+send_data "PUT" "$HOST/projects/$PROJECT/versions/1.0/phases/QA" "<phase><uri>http://localhost:5000</uri></phase>" 204
+send_data "PUT" "$HOST/projects/$PROJECT/versions/1.0/phases/QA2" "<phase><name>QA2</name><uri>http://localhost:5000</uri></phase>" 204
+send_data "PUT" "$HOST/projects/$PROJECT/versions/1.0/phases/QA3" "<phase><name>QA5</name><uri>http://localhost:5000</uri></phase>" 400
+
+send "DELETE" "$HOST/projects/$PROJECT/versions/1.0/phases" 405
+
+check_response_code "$HOST/projects/$PROJECT/versions/1.0/phases/QA" 200
+check_response_code "$HOST/projects/$PROJECT/versions/1.0/phases/QA2" 200
+check_response_code "$HOST/projects/$PROJECT/versions/1.0/phases/QA3" 404
+check_response_code "$HOST/projects/$PROJECT/versions/1.0/phases/QA5" 404
+
+send_data "POST" "$HOST/projects/$PROJECT/versions/1.0/phases/QA" "<phase><name>QA7</name></phase>" 204
+check_response_code "$HOST/projects/$PROJECT/versions/1.0/phases/QA" 404
+check_response_code "$HOST/projects/$PROJECT/versions/1.0/phases/QA7" 200
+send_data "POST" "$HOST/projects/$PROJECT/versions/1.0/phases/QA7" "<phase><name>QA</name><uri>http://another_host.com</uri></phase>" 204
+
+send "DELETE" "$HOST/projects/$PROJECT/versions/1.0/phases/QA" 204
+check_response_code "$HOST/projects/$PROJECT/versions/1.0/phases/QA" 404
+send "DELETE" "$HOST/projects/$PROJECT/versions/1.0" 204
+check_response_code "$HOST/projects/$PROJECT/versions/1.0/phases/QA2" 404
+send "DELETE" "$HOST/projects/$PROJECT" 204
+
+# --- build tests ---
+echo "------- build tests -------"
+
+# add project and version
+send "PUT" "$HOST/projects/$PROJECT" 204
+send "PUT" "$HOST/projects/$PROJECT/versions/1.0" 204
+
+check_response_code "$HOST/projects/$PROJECT/versions/1.0/builds" 200
+check_response_code "$HOST/projects/non_existing/versions/1.0/builds" 404
+check_response_code "$HOST/projects/$PROJECT/versions/7.3/builds" 404
+
+# add build
+send "PUT" "$HOST/projects/$PROJECT/versions/1.0/builds/1" 204
+send "PUT" "$HOST/projects/$PROJECT/versions/1.0/builds/1" 409
+
+# no phases exist - empty list
+check_response_code "$HOST/projects/$PROJECT/versions/1.0/builds/1/phases" 200
+check_response_code "$HOST/projects/non_existing/versions/1.0/builds/1/phases" 404
+check_response_code "$HOST/projects/$PROJECT/versions/13.3/builds/1/phases" 404
+check_response_code "$HOST/projects/$PROJECT/versions/1.0/builds/7648/phases" 404
+
+send_data "PUT" "$HOST/projects/$PROJECT/versions/1.0/phases/QA1" "<phase><uri>http://localhost:5000</uri></phase>" 204
+send_data "PUT" "$HOST/projects/$PROJECT/versions/1.0/phases/QA1" "<phase><uri>http://localhost:5000</uri></phase>" 409
+send_data "PUT" "$HOST/projects/$PROJECT/versions/1.0/phases/QA2" "<phase><uri>http://localhost:5000</uri></phase>" 204
+send_data "PUT" "$HOST/projects/$PROJECT/versions/1.0/phases/QA3" "<phase><uri>http://localhost:5000</uri></phase>" 204
+send_data "PUT" "$HOST/projects/$PROJECT/versions/1.0/phases/QA4" "<phase><uri>http://localhost:5000</uri></phase>" 204
+send_data "PUT" "$HOST/projects/$PROJECT/versions/1.0/phases/QA5" "<phase><uri>http://localhost:5000</uri></phase>" 204
+send_data "PUT" "$HOST/projects/$PROJECT/versions/1.0/phases/QA6" "<phase><uri>http://localhost:5000</uri></phase>" 204
+
+send "PUT" "$HOST/projects/$PROJECT/versions/1.0/builds/2" 204
+
+check_response_code "$HOST/projects/$PROJECT/versions/1.0/builds/2/phases" 200
+check_response_code "$HOST/projects/non_existing/versions/1.0/builds/2/phases" 404
+check_response_code "$HOST/projects/$PROJECT/versions/7.3/builds/2/phases" 404
+check_response_code "$HOST/projects/$PROJECT/versions/1.0/builds/9999/phases" 404
+
+check_response_code "$HOST/projects/$PROJECT/versions/1.0/builds/2/phases/QA1" 200
+check_response_code "$HOST/projects/$PROJECT/versions/1.0/builds/2/phases/QA2" 404
+
+# repeat the same phase
+send_data "POST" "$HOST/projects/$PROJECT/versions/1.0/builds/2/phases/QA1" "<state><name>IN_PROGRESS</name></state>" 204
+check_response_code "$HOST/projects/$PROJECT/versions/1.0/builds/2/phases/QA1" 200
+check_response_code "$HOST/projects/$PROJECT/versions/1.0/builds/2/phases/QA2" 404
+
+# run next phase
+send_data "POST" "$HOST/projects/$PROJECT/versions/1.0/builds/2/phases/QA1" "<state><name>SUCCESS</name></state>" 204
+check_response_code "$HOST/projects/$PROJECT/versions/1.0/builds/2/phases/QA1" 200
+check_response_code "$HOST/projects/$PROJECT/versions/1.0/builds/2/phases/QA2" 200
