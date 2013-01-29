@@ -2,7 +2,16 @@
 
 function check_response_code {
 
+    # default xml
     HTTP_CODE=$(curl -s -w %{http_code} "$1" -o /dev/nul)
+    if [ $HTTP_CODE -eq $2 ];then
+        echo "SUCCESS: $1 returned $HTTP_CODE"
+    else
+        echo "FAIL:    $1 returned $HTTP_CODE, but $2 was expected"
+    fi
+
+    # check json as well
+    HTTP_CODE=$(curl -s -H "Accept: application/json" -w %{http_code} "$1" -o /dev/nul)
     if [ $HTTP_CODE -eq $2 ];then
         echo "SUCCESS: $1 returned $HTTP_CODE"
     else
