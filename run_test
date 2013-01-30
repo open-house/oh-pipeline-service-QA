@@ -1,42 +1,53 @@
 #! /bin/bash
 
+function assert_equals {
+# $1 http method
+# $2 called uri
+# $3 expected response code
+# $4 actual response code
+
+    if [ $4 -eq $3 ];then
+        echo -e "SUCCESS:\t$1 \t$2 returned $4"
+    else
+        echo -e "FAIL:\t$1 \t$2 returned $4, but $3 was expected"
+    fi
+}
+
 function check_response_code {
+# calls specified uri with GET method and checks response code
+# call is repeated with application/json Accept header
+# $1 uri to be called
+# $2 expected response code
 
     # default xml
     HTTP_CODE=$(curl -s -w %{http_code} "$1" -o /dev/nul)
-    if [ $HTTP_CODE -eq $2 ];then
-        echo "SUCCESS: $1 returned $HTTP_CODE"
-    else
-        echo "FAIL:    $1 returned $HTTP_CODE, but $2 was expected"
-    fi
+    assert_equals "GET" $1 $2 $HTTP_CODE
 
     # check json as well
     HTTP_CODE=$(curl -s -H "Accept: application/json" -w %{http_code} "$1" -o /dev/nul)
-    if [ $HTTP_CODE -eq $2 ];then
-        echo "SUCCESS: $1 returned $HTTP_CODE"
-    else
-        echo "FAIL:    $1 returned $HTTP_CODE, but $2 was expected"
-    fi
+    assert_equals "GET" $1 $2 $HTTP_CODE
 }
 
 function send {
+# calls specified uri with specified method and checks response code
+# $1 http method to be used
+# $2 uri to be called
+# $3 expected response code
+
     HTTP_CODE=$(curl -s -w %{http_code} -X $1 "$2" -o /dev/null)
-    MSG="$1 $2 - response code $HTTP_CODE"
-    if [ $HTTP_CODE -eq "$3" ];then
-        echo "SUCCESS: $MSG"
-    else
-        echo "FAIL:    $MSG"
-    fi
+    assert_equals $1 $2 $3 $HTTP_CODE
 }
 
 function send_data {
+# sends json data to specified uri with specified method and checks response code
+# $1 http method to be used
+# $2 uri to be called
+# $3 data to be sent
+# $4 expected response code
+
     HTTP_CODE=$(curl -s -w %{http_code} -X $1 --data "$3" -H "Content-Type: application/xml" "$2" -o /dev/null)
-    MSG="$1 $2 $3 - response code $HTTP_CODE"
-    if [ $HTTP_CODE -eq "$4" ];then
-        echo "SUCCESS: $MSG"
-    else
-        echo "FAIL:    $MSG"
-    fi
+    assert_equals $1 $2 $4 $HTTP_CODE
+    echo -e "\t\t\tdata sent: $3"
 }
 
 HOST="localhost:8000"
