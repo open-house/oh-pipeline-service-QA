@@ -7,9 +7,9 @@ function assert_equals {
 # $4 actual response code
 
     if [ $4 -eq $3 ];then
-        echo -e "SUCCESS:\t$1 \t$2 returned $4"
+        echo -e "SUCCESS: $1\t $2 returned $4"
     else
-        echo -e "FAIL:\t$1 \t$2 returned $4, but $3 was expected"
+        echo -e "FAIL:    $1\t $2 returned $4, but $3 was expected"
     fi
 }
 
@@ -126,9 +126,9 @@ check_response_code "$HOST/projects/$PROJECT/versions/1.0/phases" 200
 check_response_code "$HOST/projects/non_existing/versions/1.0/phases" 404
 check_response_code "$HOST/projects/$PROJECT/versions/7.3/phases" 404
 
-send_data "PUT" "$HOST/projects/$PROJECT/versions/1.0/phases/QA" "<phase><uri>http://localhost:5000</uri></phase>" 204
-send_data "PUT" "$HOST/projects/$PROJECT/versions/1.0/phases/QA2" "<phase><name>QA2</name><uri>http://localhost:5000</uri></phase>" 204
-send_data "PUT" "$HOST/projects/$PROJECT/versions/1.0/phases/QA3" "<phase><name>QA5</name><uri>http://localhost:5000</uri></phase>" 400
+send_data "PUT" "$HOST/projects/$PROJECT/versions/1.0/phases/QA" "<phase><uri>http://localhost:5000/</uri></phase>" 204
+send_data "PUT" "$HOST/projects/$PROJECT/versions/1.0/phases/QA2" "<phase><name>QA2</name><uri>http://localhost:5000/</uri></phase>" 204
+send_data "PUT" "$HOST/projects/$PROJECT/versions/1.0/phases/QA3" "<phase><name>QA5</name><uri>http://localhost:5000/</uri></phase>" 400
 
 send "DELETE" "$HOST/projects/$PROJECT/versions/1.0/phases" 405
 
@@ -140,7 +140,7 @@ check_response_code "$HOST/projects/$PROJECT/versions/1.0/phases/QA5" 404
 send_data "POST" "$HOST/projects/$PROJECT/versions/1.0/phases/QA" "<phase><name>QA7</name></phase>" 204
 check_response_code "$HOST/projects/$PROJECT/versions/1.0/phases/QA" 404
 check_response_code "$HOST/projects/$PROJECT/versions/1.0/phases/QA7" 200
-send_data "POST" "$HOST/projects/$PROJECT/versions/1.0/phases/QA7" "<phase><name>QA</name><uri>http://another_host.com</uri></phase>" 204
+send_data "POST" "$HOST/projects/$PROJECT/versions/1.0/phases/QA7" "<phase><name>QA</name><uri>http://another_host.com/</uri></phase>" 204
 
 send "DELETE" "$HOST/projects/$PROJECT/versions/1.0/phases/QA" 204
 check_response_code "$HOST/projects/$PROJECT/versions/1.0/phases/QA" 404
