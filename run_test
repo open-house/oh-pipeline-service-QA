@@ -196,3 +196,37 @@ check_response_code "$HOST/projects/$PROJECT/versions/1.0/builds/2/phases/QA2" 4
 send_data "POST" "$HOST/projects/$PROJECT/versions/1.0/builds/2/phases/QA1" "<state><name>SUCCESS</name></state>" 204
 check_response_code "$HOST/projects/$PROJECT/versions/1.0/builds/2/phases/QA1" 200
 check_response_code "$HOST/projects/$PROJECT/versions/1.0/builds/2/phases/QA2" 200
+
+# add manual phase for version 2.0
+send "PUT" "$HOST/projects/$PROJECT/versions/2.0" 204
+send_data "PUT" "$HOST/projects/$PROJECT/versions/2.0/phases/QA1" "<phase><uri>http://localhost:5000</uri><auto>false</auto></phase>" 204
+send_data "PUT" "$HOST/projects/$PROJECT/versions/2.0/phases/QA2" "<phase><uri>http://localhost:5000</uri><auto>false</auto></phase>" 204
+send_data "PUT" "$HOST/projects/$PROJECT/versions/2.0/phases/QA3" "<phase><uri>http://localhost:5000</uri><auto>true</auto></phase>" 204
+send "PUT" "$HOST/projects/$PROJECT/versions/2.0/builds/1" 204
+
+# phase is not started automatically
+check_response_code "$HOST/projects/$PROJECT/versions/2.0/builds/1/phases/QA1" 404
+check_response_code "$HOST/projects/$PROJECT/versions/2.0/builds/1/phases/QA2" 404
+check_response_code "$HOST/projects/$PROJECT/versions/2.0/builds/1/phases/QA3" 404
+
+# manual start
+send_data "POST" "$HOST/projects/$PROJECT/versions/2.0/builds/1/phases/QA1" "<state><name>IN_PROGRESS</name></state>" 204
+check_response_code "$HOST/projects/$PROJECT/versions/2.0/builds/1/phases/QA1" 200
+check_response_code "$HOST/projects/$PROJECT/versions/2.0/builds/1/phases/QA2" 404
+check_response_code "$HOST/projects/$PROJECT/versions/2.0/builds/1/phases/QA3" 404
+
+send_data "POST" "$HOST/projects/$PROJECT/versions/2.0/builds/1/phases/QA1" "<state><name>SUCCESS</name></state>" 204
+check_response_code "$HOST/projects/$PROJECT/versions/2.0/builds/1/phases/QA1" 200
+check_response_code "$HOST/projects/$PROJECT/versions/2.0/builds/1/phases/QA2" 404
+check_response_code "$HOST/projects/$PROJECT/versions/2.0/builds/1/phases/QA3" 404
+
+send_data "POST" "$HOST/projects/$PROJECT/versions/2.0/builds/1/phases/QA2" "<state><name>IN_PROGRESS</name></state>" 204
+check_response_code "$HOST/projects/$PROJECT/versions/2.0/builds/1/phases/QA1" 200
+check_response_code "$HOST/projects/$PROJECT/versions/2.0/builds/1/phases/QA2" 200
+check_response_code "$HOST/projects/$PROJECT/versions/2.0/builds/1/phases/QA3" 404
+
+send_data "POST" "$HOST/projects/$PROJECT/versions/2.0/builds/1/phases/QA2" "<state><name>SUCCESS</name></state>" 204
+check_response_code "$HOST/projects/$PROJECT/versions/2.0/builds/1/phases/QA1" 200
+check_response_code "$HOST/projects/$PROJECT/versions/2.0/builds/1/phases/QA2" 200
+check_response_code "$HOST/projects/$PROJECT/versions/2.0/builds/1/phases/QA3" 200
+
