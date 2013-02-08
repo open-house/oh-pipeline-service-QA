@@ -210,6 +210,8 @@ check_response_code "$HOST/projects/$PROJECT/versions/2.0/builds/1/phases/QA2" 4
 check_response_code "$HOST/projects/$PROJECT/versions/2.0/builds/1/phases/QA3" 404
 
 # manual start
+# first phase can only be IN_PROGRESS
+send_data "POST" "$HOST/projects/$PROJECT/versions/2.0/builds/1/phases/QA1" "<state><name>FAIL</name></state>" 409
 send_data "POST" "$HOST/projects/$PROJECT/versions/2.0/builds/1/phases/QA1" "<state><name>IN_PROGRESS</name></state>" 204
 check_response_code "$HOST/projects/$PROJECT/versions/2.0/builds/1/phases/QA1" 200
 check_response_code "$HOST/projects/$PROJECT/versions/2.0/builds/1/phases/QA2" 404
